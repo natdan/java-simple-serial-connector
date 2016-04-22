@@ -24,62 +24,28 @@
  */
 package jssc;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
+import java.net.Socket;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  *
  * @author scream3r
  */
-public class SerialPort {
+public class NetworkSerialPort implements ISerialPort {
 
-    private Logger logger = Logger.getLogger("SerialPort");
+    private Logger logger = Logger.getLogger("NetworkSerialPort");
 
+    private SerialPortEventListener eventListener;
     private String portName;
-
-    //since 2.2.0 ->
-    private Method methodErrorOccurred = null;
-    //<- since 2.2.0
-
-    public static final int BAUDRATE_110 = 110;
-    public static final int BAUDRATE_300 = 300;
-    public static final int BAUDRATE_600 = 600;
-    public static final int BAUDRATE_1200 = 1200;
-    public static final int BAUDRATE_4800 = 4800;
-    public static final int BAUDRATE_9600 = 9600;
-    public static final int BAUDRATE_14400 = 14400;
-    public static final int BAUDRATE_19200 = 19200;
-    public static final int BAUDRATE_38400 = 38400;
-    public static final int BAUDRATE_57600 = 57600;
-    public static final int BAUDRATE_115200 = 115200;
-    public static final int BAUDRATE_128000 = 128000;
-    public static final int BAUDRATE_256000 = 256000;
-
-
-    public static final int DATABITS_5 = 5;
-    public static final int DATABITS_6 = 6;
-    public static final int DATABITS_7 = 7;
-    public static final int DATABITS_8 = 8;
-
-
-    public static final int STOPBITS_1 = 1;
-    public static final int STOPBITS_2 = 2;
-    public static final int STOPBITS_1_5 = 3;
-
-
-    public static final int PARITY_NONE = 0;
-    public static final int PARITY_ODD = 1;
-    public static final int PARITY_EVEN = 2;
-    public static final int PARITY_MARK = 3;
-    public static final int PARITY_SPACE = 4;
-
-
-    public static final int PURGE_RXABORT = 0x0002;
-    public static final int PURGE_RXCLEAR = 0x0008;
-    public static final int PURGE_TXABORT = 0x0001;
-    public static final int PURGE_TXCLEAR = 0x0004;
-
+    private boolean portOpened = false;
+    private boolean maskAssigned = false;
+    private boolean eventListenerAdded = false;
 
     public static final int MASK_RXCHAR = 1;
     public static final int MASK_RXFLAG = 2;
@@ -91,37 +57,21 @@ public class SerialPort {
     public static final int MASK_ERR = 128;
     public static final int MASK_RING = 256;
 
+    private String address;
+    private int port;
+    private Socket socket;
+    private InputStream socketIn;
+    private OutputStream socketOut;
 
-    //since 0.8 ->
-    public static final int FLOWCONTROL_NONE = 0;
-    public static final int FLOWCONTROL_RTSCTS_IN = 1;
-    public static final int FLOWCONTROL_RTSCTS_OUT = 2;
-    public static final int FLOWCONTROL_XONXOFF_IN = 4;
-    public static final int FLOWCONTROL_XONXOFF_OUT = 8;
-    //<- since 0.8
-
-    //since 0.8 ->
-    public static final int ERROR_FRAME = 0x0008;
-    public static final int ERROR_OVERRUN = 0x0002;
-    public static final int ERROR_PARITY = 0x0004;
-    //<- since 0.8
-
-    //since 2.6.0 ->
-    private static final int PARAMS_FLAG_IGNPAR = 1;
-    private static final int PARAMS_FLAG_PARMRK = 2;
-    //<- since 2.6.0
-
-    private ISerialPort port;
-
-    public SerialPort(String portName) {
+    public NetworkSerialPort(String portName) {
+        this.portName = portName;
         if (portName.startsWith("serialproxy://")) {
-            logger.fine("Setting up network port " + portName);
-            port = new NetworkSerialPort(portName);
-            logger.fine("Set up network port " + portName);
+            String[] sp = portName.substring(14).split(":");
+            address = sp[0];
+            port = Integer.parseInt(sp[1]);
+            logger.fine("NetworkSerialPort " + address + ":" + port);
         } else {
-            logger.fine("Setting up local port " + portName);
-            port = new LocalSerialPort(portName);
-            logger.fine("Set up local port " + portName);
+            logger.fine("NetworkSerialPort port name doesn't start with 'serialproxy:' but is " + portName);
         }
     }
 
@@ -131,7 +81,7 @@ public class SerialPort {
      * @return Method returns port name under operation as a String
      */
     public String getPortName() {
-        return port.getPortName();
+        return portName;
     }
 
     /**
@@ -140,7 +90,7 @@ public class SerialPort {
      * @return Method returns true if port is open, otherwise false
      */
     public boolean isOpened() {
-        return port.isOpened();
+        return portOpened;
     }
 
     /**
@@ -154,7 +104,22 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean openPort() throws SerialPortException {
-        return port.openPort();
+        if (portOpened) {
+            throw new SerialPortException(portName, "openPort()", SerialPortException.TYPE_PORT_ALREADY_OPENED);
+        }
+
+        try {
+            logger.fine("Opening socket to " + address + ":" + port);
+            socket = new Socket(address, port);
+            socketIn = socket.getInputStream();
+            socketOut = socket.getOutputStream();
+            logger.fine("Opened socket to " + address + ":" + port);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Error: " + e.getMessage(), e);
+            throw new SerialPortException(portName, "openPort()", SerialPortException.TYPE_PORT_NOT_FOUND);
+        }
+        portOpened = true;
+        return true;
     }
 
     /**
@@ -170,7 +135,7 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean setParams(int baudRate, int dataBits, int stopBits, int parity) throws SerialPortException {
-        return port.setParams(baudRate, dataBits, stopBits, parity);
+        return setParams(baudRate, dataBits, stopBits, parity, true, true);
     }
 
     /**
@@ -190,7 +155,16 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean setParams(int baudRate, int dataBits, int stopBits, int parity, boolean setRTS, boolean setDTR) throws SerialPortException {
-        return port.setParams(baudRate, dataBits, stopBits, parity, setRTS, setDTR);
+        checkPortOpened("setParams()");
+        if(stopBits == 1){
+            stopBits = 0;
+        }
+        else if(stopBits == 3){
+            stopBits = 1;
+        }
+        int flags = 0;
+        // TODO
+        return true;
     }
 
     /**
@@ -205,8 +179,21 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean purgePort(int flags) throws SerialPortException {
-        return port.purgePort(flags);
+        checkPortOpened("purgePort()");
+        try {
+            socketOut.flush();
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Error purgin port", e);
+        }
+        return true;
     }
+
+    /**
+     * Events mask for Linux OS
+     *
+     * @since 0.8
+     */
+    private int linuxMask;
 
     /**
      * Set events mask. Required flags shall be sent to the input. Variables with prefix
@@ -220,7 +207,22 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean setEventsMask(int mask) throws SerialPortException {
-        return port.setEventsMask(mask);
+        checkPortOpened("setEventsMask()");
+        if(SerialNativeInterface.getOsType() == SerialNativeInterface.OS_LINUX ||
+           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_SOLARIS ||
+           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_MAC_OS_X){//since 0.9.0
+            linuxMask = mask;
+            if(mask > 0){
+                maskAssigned = true;
+            }
+            else {
+                maskAssigned = false;
+            }
+            return true;
+        }
+        boolean returnValue = true;
+        // TODO
+        return returnValue;
     }
 
     /**
@@ -231,7 +233,22 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public int getEventsMask() throws SerialPortException {
-        return port.getEventsMask();
+        checkPortOpened("getEventsMask()");
+        if (SerialNativeInterface.getOsType() == SerialNativeInterface.OS_LINUX ||
+           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_SOLARIS ||
+           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_MAC_OS_X) {//since 0.9.0
+            return linuxMask;
+        }
+        return linuxMask;
+    }
+
+    /**
+     * Getting events mask for the port is Linux OS (for internal use)
+     *
+     * @since 0.8
+     */
+    private int getLinuxMask() {
+        return linuxMask;
     }
 
     /**
@@ -242,7 +259,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean setRTS(boolean enabled) throws SerialPortException {
-        return port.setRTS(enabled);
+        checkPortOpened("setRTS()");
+        // TODO
+        return true;
     }
 
     /**
@@ -253,7 +272,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean setDTR(boolean enabled) throws SerialPortException {
-        return port.setDTR(enabled);
+        checkPortOpened("setDTR()");
+        // TODO
+        return true;
     }
 
     /**
@@ -264,7 +285,15 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean writeBytes(byte[] buffer) throws SerialPortException {
-        return port.writeBytes(buffer);
+        checkPortOpened("writeBytes()");
+        try {
+            socketOut.write(buffer);
+            if (logger.isLoggable(Level.FINEST)) { logger.finest(">(" + buffer.length + ")"); }
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Error writing bytes", e);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -277,7 +306,8 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean writeByte(byte singleByte) throws SerialPortException {
-        return port.writeByte(singleByte);
+        checkPortOpened("writeByte()");
+        return writeBytes(new byte[]{singleByte});
     }
 
     /**
@@ -290,7 +320,8 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean writeString(String string) throws SerialPortException {
-        return port.writeString(string);
+        checkPortOpened("writeString()");
+        return writeBytes(string.getBytes());
     }
 
     /**
@@ -303,7 +334,8 @@ public class SerialPort {
      * @since 2.8.0
      */
     public boolean writeString(String string, String charsetName) throws SerialPortException, UnsupportedEncodingException {
-        return port.writeString(string, charsetName);
+        checkPortOpened("writeString()");
+        return writeBytes(string.getBytes(charsetName));
     }
 
     /**
@@ -316,7 +348,8 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean writeInt(int singleInt) throws SerialPortException {
-        return port.writeInt(singleInt);
+        checkPortOpened("writeInt()");
+        return writeBytes(new byte[]{(byte)singleInt});
     }
 
     /**
@@ -329,7 +362,12 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean writeIntArray(int[] buffer) throws SerialPortException {
-        return port.writeIntArray(buffer);
+        checkPortOpened("writeIntArray()");
+        byte[] byteArray = new byte[buffer.length];
+        for(int i = 0; i < buffer.length; i++){
+            byteArray[i] = (byte)buffer[i];
+        }
+        return writeBytes(byteArray);
     }
 
     /**
@@ -342,7 +380,29 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public byte[] readBytes(int byteCount) throws SerialPortException {
-        return port.readBytes(byteCount);
+        checkPortOpened("readBytes()");
+
+        try {
+            byte[] buf = new byte[byteCount];
+
+            int r = 0;
+            while (r < byteCount) {
+                int rr = socketIn.read(buf, r, byteCount - r);
+                if (rr > 0) {
+                    r = r + rr;
+                } else {
+                    logger.warning("Error readBytes(): read " + rr + " and now got " + r);
+                    throw new SerialPortException(portName, "readBytes(count)", "Cannot read socket");
+                }
+            }
+
+            if (logger.isLoggable(Level.FINEST)) { logger.finest("<(" + byteCount + ")"); }
+
+            return buf;
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Error read bytes", e);
+            throw new SerialPortException(portName, "readBytes(count)", e.getMessage());
+        }
     }
 
     /**
@@ -357,7 +417,8 @@ public class SerialPort {
      * @since 0.8
      */
     public String readString(int byteCount) throws SerialPortException {
-        return port.readString(byteCount);
+        checkPortOpened("readString()");
+        return new String(readBytes(byteCount));
     }
 
     /**
@@ -372,7 +433,8 @@ public class SerialPort {
      * @since 0.8
      */
     public String readHexString(int byteCount) throws SerialPortException {
-        return port.readHexString(byteCount);
+        checkPortOpened("readHexString()");
+        return readHexString(byteCount, " ");
     }
 
     /**
@@ -387,7 +449,18 @@ public class SerialPort {
      * @since 0.8
      */
     public String readHexString(int byteCount, String separator) throws SerialPortException {
-        return port.readHexString(byteCount, separator);
+        checkPortOpened("readHexString()");
+        String[] strBuffer = readHexStringArray(byteCount);
+        String returnString = "";
+        boolean insertSeparator = false;
+        for(String value : strBuffer){
+            if(insertSeparator){
+                returnString += separator;
+            }
+            returnString += value;
+            insertSeparator = true;
+        }
+        return returnString;
     }
 
     /**
@@ -402,7 +475,17 @@ public class SerialPort {
      * @since 0.8
      */
     public String[] readHexStringArray(int byteCount) throws SerialPortException {
-        return port.readHexStringArray(byteCount);
+        checkPortOpened("readHexStringArray()");
+        int[] intBuffer = readIntArray(byteCount);
+        String[] strBuffer = new String[intBuffer.length];
+        for(int i = 0; i < intBuffer.length; i++){
+            String value = Integer.toHexString(intBuffer[i]).toUpperCase();
+            if(value.length() == 1) {
+                value = "0" + value;
+            }
+            strBuffer[i] = value;
+        }
+        return strBuffer;
     }
 
     /**
@@ -417,7 +500,39 @@ public class SerialPort {
      * @since 0.8
      */
     public int[] readIntArray(int byteCount) throws SerialPortException {
-        return port.readIntArray(byteCount);
+        checkPortOpened("readIntArray()");
+        byte[] buffer = readBytes(byteCount);
+        int[] intBuffer = new int[buffer.length];
+        for(int i = 0; i < buffer.length; i++){
+            if(buffer[i] < 0){
+                intBuffer[i] = 256 + buffer[i];
+            }
+            else {
+                intBuffer[i] = buffer[i];
+            }
+        }
+        return intBuffer;
+    }
+
+    private void waitBytesWithTimeout(String methodName, int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
+        checkPortOpened("waitBytesWithTimeout()");
+        boolean timeIsOut = true;
+        long startTime = System.currentTimeMillis();
+        while((System.currentTimeMillis() - startTime) < timeout){
+            if(getInputBufferBytesCount() >= byteCount){
+                timeIsOut = false;
+                break;
+            }
+            try {
+                Thread.sleep(0, 100);//Need to sleep some time to prevent high CPU loading
+            }
+            catch (InterruptedException ex) {
+                //Do nothing
+            }
+        }
+        if(timeIsOut){
+            throw new SerialPortTimeoutException(portName, methodName, timeout);
+        }
     }
 
     /**
@@ -434,7 +549,9 @@ public class SerialPort {
      * @since 2.0
      */
     public byte[] readBytes(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readBytes(byteCount, timeout);
+        checkPortOpened("readBytes()");
+        waitBytesWithTimeout("readBytes()", byteCount, timeout);
+        return readBytes(byteCount);
     }
 
     /**
@@ -451,7 +568,9 @@ public class SerialPort {
      * @since 2.0
      */
     public String readString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readString(byteCount, timeout);
+        checkPortOpened("readString()");
+        waitBytesWithTimeout("readString()", byteCount, timeout);
+        return readString(byteCount);
     }
 
     /**
@@ -468,7 +587,9 @@ public class SerialPort {
      * @since 2.0
      */
     public String readHexString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexString(byteCount, timeout);
+        checkPortOpened("readHexString()");
+        waitBytesWithTimeout("readHexString()", byteCount, timeout);
+        return readHexString(byteCount);
     }
 
     /**
@@ -485,7 +606,9 @@ public class SerialPort {
      * @since 2.0
      */
     public String readHexString(int byteCount, String separator, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexString(byteCount, separator, timeout);
+        checkPortOpened("readHexString()");
+        waitBytesWithTimeout("readHexString()", byteCount, timeout);
+        return readHexString(byteCount, separator);
     }
 
     /**
@@ -502,7 +625,9 @@ public class SerialPort {
      * @since 2.0
      */
     public String[] readHexStringArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexStringArray(byteCount, timeout);
+        checkPortOpened("readHexStringArray()");
+        waitBytesWithTimeout("readHexStringArray()", byteCount, timeout);
+        return readHexStringArray(byteCount);
     }
 
     /**
@@ -519,7 +644,9 @@ public class SerialPort {
      * @since 2.0
      */
     public int[] readIntArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readIntArray(byteCount, timeout);
+        checkPortOpened("readIntArray()");
+        waitBytesWithTimeout("readIntArray()", byteCount, timeout);
+        return readIntArray(byteCount);
     }
 
     /**
@@ -532,7 +659,12 @@ public class SerialPort {
      * @since 0.8
      */
     public byte[] readBytes() throws SerialPortException {
-        return port.readBytes();
+        checkPortOpened("readBytes()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readBytes(byteCount);
     }
 
     /**
@@ -545,7 +677,12 @@ public class SerialPort {
      * @since 0.8
      */
     public String readString() throws SerialPortException {
-        return port.readString();
+        checkPortOpened("readString()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readString(byteCount);
     }
 
     /**
@@ -558,7 +695,12 @@ public class SerialPort {
      * @since 0.8
      */
     public String readHexString() throws SerialPortException {
-        return port.readHexString();
+        checkPortOpened("readHexString()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readHexString(byteCount);
     }
 
     /**
@@ -571,7 +713,12 @@ public class SerialPort {
      * @since 0.8
      */
     public String readHexString(String separator) throws SerialPortException {
-        return port.readHexString(separator);
+        checkPortOpened("readHexString()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readHexString(byteCount, separator);
     }
 
     /**
@@ -584,7 +731,12 @@ public class SerialPort {
      * @since 0.8
      */
     public String[] readHexStringArray() throws SerialPortException {
-        return port.readHexStringArray();
+        checkPortOpened("readHexStringArray()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readHexStringArray(byteCount);
     }
 
     /**
@@ -597,7 +749,12 @@ public class SerialPort {
      * @since 0.8
      */
     public int[] readIntArray() throws SerialPortException {
-        return port.readIntArray();
+        checkPortOpened("readIntArray()");
+        int byteCount = getInputBufferBytesCount();
+        if(byteCount <= 0){
+            return null;
+        }
+        return readIntArray(byteCount);
     }
 
     /**
@@ -610,7 +767,15 @@ public class SerialPort {
      * @since 0.8
      */
     public int getInputBufferBytesCount() throws SerialPortException {
-        return port.getInputBufferBytesCount();
+        checkPortOpened("getInputBufferBytesCount()");
+        try {
+            int available = socketIn.available();
+            if (logger.isLoggable(Level.FINEST)) { logger.finest("?<(" + available + ")"); }
+            return available;
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "Error checking count", e);
+            throw new SerialPortException(portName, "getInputBufferBytesCount()", e.getMessage());
+        }
     }
 
     /**
@@ -623,7 +788,8 @@ public class SerialPort {
      * @since 0.8
      */
     public int getOutputBufferBytesCount() throws SerialPortException {
-        return port.getOutputBufferBytesCount();
+        checkPortOpened("getOutputBufferBytesCount()");
+        return 0;
     }
 
     /**
@@ -637,7 +803,9 @@ public class SerialPort {
      * @since 0.8
      */
     public boolean setFlowControlMode(int mask) throws SerialPortException {
-        return port.setFlowControlMode(mask);
+        checkPortOpened("setFlowControlMode()");
+        // TODO
+        return true;
     }
 
     /**
@@ -650,7 +818,9 @@ public class SerialPort {
      * @since 0.8
      */
     public int getFlowControlMode() throws SerialPortException {
-        return port.getFlowControlMode();
+        checkPortOpened("getFlowControlMode()");
+        // TODO
+        return 0;
     }
 
     /**
@@ -664,8 +834,27 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean sendBreak(int duration) throws SerialPortException {
-        return port.sendBreak(duration);
+    public boolean sendBreak(int duration)throws SerialPortException {
+        checkPortOpened("sendBreak()");
+        // TODO
+        return true;
+     }
+
+    private int[][] waitEvents() {
+        return new int[0][];
+    }
+
+    /**
+     * Check port opened (since jSSC-0.8 String "EMPTY" was replaced with "portName" variable)
+     *
+     * @param methodName method name
+     *
+     * @throws SerialPortException
+     */
+    private void checkPortOpened(String methodName) throws SerialPortException {
+        if (!portOpened) {
+            throw new SerialPortException(portName, methodName, SerialPortException.TYPE_PORT_NOT_OPENED);
+        }
     }
 
     /**
@@ -680,7 +869,8 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public int[] getLinesStatus() throws SerialPortException {
-        return port.getLinesStatus();
+        checkPortOpened("getLinesStatus()");
+        return new int[4];
     }
 
     /**
@@ -691,7 +881,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean isCTS() throws SerialPortException {
-        return port.isCTS();
+        checkPortOpened("isCTS()");
+        // TODO
+        return false;
     }
 
     /**
@@ -702,7 +894,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean isDSR() throws SerialPortException {
-        return port.isDSR();
+        checkPortOpened("isDSR()");
+        // TODO
+        return false;
     }
 
     /**
@@ -713,7 +907,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean isRING() throws SerialPortException {
-        return port.isRING();
+        checkPortOpened("isRING()");
+        // TODO
+        return false;
     }
 
     /**
@@ -724,7 +920,9 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean isRLSD() throws SerialPortException {
-        return port.isRLSD();
+        checkPortOpened("isRLSD()");
+        // TODO
+        return false;
     }
 
     /**
@@ -736,7 +934,7 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public void addEventListener(SerialPortEventListener listener) throws SerialPortException {
-        port.addEventListener(listener);
+        addEventListener(listener, MASK_RXCHAR, false);
     }
 
     /**
@@ -750,7 +948,65 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public void addEventListener(SerialPortEventListener listener, int mask) throws SerialPortException {
-        port.addEventListener(listener, mask);
+        addEventListener(listener, mask, true);
+    }
+
+    /**
+     * Internal method. Add event listener. Object of <b>"SerialPortEventListener"</b> type shall be sent
+     * to the method. This object shall be properly described, as it will be in
+     * charge for handling of occurred events. Also events mask shall be sent to
+     * this method, to do it use variables with prefix <b>"MASK_"</b> for example <b>"MASK_RXCHAR"</b>. If
+     * <b>overwriteMask == true</b> and mask has been already assigned it value will be rewrited by <b>mask</b>
+     * value, if <b>overwriteMask == false</b> and mask has been already assigned the new <b>mask</b> value will be ignored,
+     * if there is no assigned mask to this serial port the <b>mask</b> value will be used for setting it up in spite of
+     * <b>overwriteMask</b> value
+     *
+     * @see #setEventsMask(int) setEventsMask(int mask)
+     *
+     * @throws SerialPortException
+     */
+    private void addEventListener(SerialPortEventListener listener, int mask, boolean overwriteMask) throws SerialPortException {
+        checkPortOpened("addEventListener()");
+        if(!eventListenerAdded){
+            if((maskAssigned && overwriteMask) || !maskAssigned) {
+                setEventsMask(mask);
+            }
+            eventListener = listener;
+            eventThread = getNewEventThread();
+            eventThread.setName("EventThread " + portName);
+            //since 2.2.0 ->
+            try {
+                Method method = eventListener.getClass().getMethod("errorOccurred", new Class[]{SerialPortException.class});
+                method.setAccessible(true);
+                // methodErrorOccurred = method;
+            }
+            catch (SecurityException ex) {
+                //Do nothing
+            }
+            catch (NoSuchMethodException ex) {
+                //Do nothing
+            }
+            //<- since 2.2.0
+            eventThread.start();
+            eventListenerAdded = true;
+        }
+        else {
+            throw new SerialPortException(portName, "addEventListener()", SerialPortException.TYPE_LISTENER_ALREADY_ADDED);
+        }
+    }
+
+    /**
+     * Create new EventListener Thread depending on the type of operating system
+     *
+     * @since 0.8
+     */
+    private EventThread getNewEventThread() {
+//        if(SerialNativeInterface.getOsType() == SerialNativeInterface.OS_LINUX ||
+//           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_SOLARIS ||
+//           SerialNativeInterface.getOsType() == SerialNativeInterface.OS_MAC_OS_X){//since 0.9.0
+//            return new LinuxEventThread();
+//        }
+        return new EventThread();
     }
 
     /**
@@ -762,7 +1018,25 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean removeEventListener() throws SerialPortException {
-        return port.removeEventListener();
+        checkPortOpened("removeEventListener()");
+        if(!eventListenerAdded){
+            throw new SerialPortException(portName, "removeEventListener()", SerialPortException.TYPE_CANT_REMOVE_LISTENER);
+        }
+        eventThread.terminateThread();
+        setEventsMask(0);
+        if(Thread.currentThread().getId() != eventThread.getId()){
+            if(eventThread.isAlive()){
+                try {
+                    eventThread.join(5000);
+                }
+                catch (InterruptedException ex) {
+                    throw new SerialPortException(portName, "removeEventListener()", SerialPortException.TYPE_LISTENER_THREAD_INTERRUPTED);
+                }
+            }
+        }
+        // methodErrorOccurred = null;
+        eventListenerAdded = false;
+        return true;
     }
 
     /**
@@ -773,6 +1047,50 @@ public class SerialPort {
      * @throws SerialPortException
      */
     public boolean closePort() throws SerialPortException {
-        return port.closePort();
+        checkPortOpened("closePort()");
+        if(eventListenerAdded){
+            removeEventListener();
+        }
+
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+    private EventThread eventThread;
+
+    private class EventThread extends Thread {
+
+        private boolean threadTerminated = false;
+
+        @Override
+        public void run() {
+            while(!threadTerminated){
+                int[][] eventArray = waitEvents();
+                for(int i = 0; i < eventArray.length; i++){
+                    if(eventArray[i][0] > 0 && !threadTerminated){
+                        eventListener.serialEvent(new SerialPortEvent(portName, eventArray[i][0], eventArray[i][1]));
+                        //FIXME
+                        /*if(methodErrorOccurred != null){
+                            try {
+                                methodErrorOccurred.invoke(eventListener, new Object[]{new SerialPortException("port", "method", "exception")});
+                            }
+                            catch (Exception ex) {
+                                System.out.println(ex);
+                            }
+                        }*/
+                    }
+                }
+            }
+        }
+
+        private void terminateThread(){
+            threadTerminated = true;
+        }
     }
 }

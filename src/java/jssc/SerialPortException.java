@@ -65,7 +65,7 @@ public class SerialPortException extends Exception {
     private String methodName;
     private String exceptionType;
 
-    public SerialPortException(String portName, String methodName, String exceptionType){
+    public SerialPortException(String portName, String methodName, String exceptionType) {
         super("Port name - " + portName + "; Method name - " + methodName + "; Exception type - " + exceptionType + ".");
         this.portName = portName;
         this.methodName = methodName;
