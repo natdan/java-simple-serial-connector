@@ -24,137 +24,27 @@
  */
 package jssc;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Method;
-import java.util.logging.Logger;
 
 /**
  *
  * @author scream3r
  */
-public class SerialPort {
-
-    private Logger logger = Logger.getLogger("SerialPort");
-
-    private String portName;
-
-    //since 2.2.0 ->
-    private Method methodErrorOccurred = null;
-    //<- since 2.2.0
-
-    public static final int BAUDRATE_110 = 110;
-    public static final int BAUDRATE_300 = 300;
-    public static final int BAUDRATE_600 = 600;
-    public static final int BAUDRATE_1200 = 1200;
-    public static final int BAUDRATE_4800 = 4800;
-    public static final int BAUDRATE_9600 = 9600;
-    public static final int BAUDRATE_14400 = 14400;
-    public static final int BAUDRATE_19200 = 19200;
-    public static final int BAUDRATE_38400 = 38400;
-    public static final int BAUDRATE_57600 = 57600;
-    public static final int BAUDRATE_115200 = 115200;
-    public static final int BAUDRATE_128000 = 128000;
-    public static final int BAUDRATE_256000 = 256000;
-
-
-    public static final int DATABITS_5 = 5;
-    public static final int DATABITS_6 = 6;
-    public static final int DATABITS_7 = 7;
-    public static final int DATABITS_8 = 8;
-
-
-    public static final int STOPBITS_1 = 1;
-    public static final int STOPBITS_2 = 2;
-    public static final int STOPBITS_1_5 = 3;
-
-
-    public static final int PARITY_NONE = 0;
-    public static final int PARITY_ODD = 1;
-    public static final int PARITY_EVEN = 2;
-    public static final int PARITY_MARK = 3;
-    public static final int PARITY_SPACE = 4;
-
-
-    public static final int PURGE_RXABORT = 0x0002;
-    public static final int PURGE_RXCLEAR = 0x0008;
-    public static final int PURGE_TXABORT = 0x0001;
-    public static final int PURGE_TXCLEAR = 0x0004;
-
-
-    public static final int MASK_RXCHAR = 1;
-    public static final int MASK_RXFLAG = 2;
-    public static final int MASK_TXEMPTY = 4;
-    public static final int MASK_CTS = 8;
-    public static final int MASK_DSR = 16;
-    public static final int MASK_RLSD = 32;
-    public static final int MASK_BREAK = 64;
-    public static final int MASK_ERR = 128;
-    public static final int MASK_RING = 256;
-
-
-    //since 0.8 ->
-    public static final int FLOWCONTROL_NONE = 0;
-    public static final int FLOWCONTROL_RTSCTS_IN = 1;
-    public static final int FLOWCONTROL_RTSCTS_OUT = 2;
-    public static final int FLOWCONTROL_XONXOFF_IN = 4;
-    public static final int FLOWCONTROL_XONXOFF_OUT = 8;
-    //<- since 0.8
-
-    //since 0.8 ->
-    public static final int ERROR_FRAME = 0x0008;
-    public static final int ERROR_OVERRUN = 0x0002;
-    public static final int ERROR_PARITY = 0x0004;
-    //<- since 0.8
-
-    //since 2.6.0 ->
-    private static final int PARAMS_FLAG_IGNPAR = 1;
-    private static final int PARAMS_FLAG_PARMRK = 2;
-    //<- since 2.6.0
-
-    private ISerialPort port;
-
-    public SerialPort(String portName) {
-        try {
-            FileWriter out = new FileWriter("c:\\t.txt", true);
-            try {
-                out.write("Port " + portName + "\n");
-                if (portName.startsWith("serialproxy://")) {
-                    out.write("serialproxy " + portName + "\n");
-                    logger.fine("Setting up network port " + portName);
-                    port = new NetworkSerialPort(portName);
-                    logger.fine("Set up network port " + portName);
-                } else {
-                    logger.fine("Setting up local port " + portName);
-                    port = new LocalSerialPort(portName);
-                    logger.fine("Set up local port " + portName);
-                }
-            } finally {
-                out.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+public interface ISerialPort {
 
     /**
      * Getting port name under operation
      *
      * @return Method returns port name under operation as a String
      */
-    public String getPortName() {
-        return port.getPortName();
-    }
+    String getPortName();
 
     /**
      * Getting port state
      *
      * @return Method returns true if port is open, otherwise false
      */
-    public boolean isOpened() {
-        return port.isOpened();
-    }
+    boolean isOpened();
 
     /**
      * Port opening
@@ -166,9 +56,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean openPort() throws SerialPortException {
-        return port.openPort();
-    }
+    boolean openPort() throws SerialPortException;
 
     /**
      * Setting the parameters of port. RTS and DTR lines are enabled by default
@@ -182,10 +70,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean setParams(int baudRate, int dataBits, int stopBits, int parity) throws SerialPortException {
-        return port.setParams(baudRate, dataBits, stopBits, parity);
-    }
-
+    boolean setParams(int baudRate, int dataBits, int stopBits, int parity) throws SerialPortException;
     /**
      * Setting the parameters of port
      *
@@ -202,9 +87,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean setParams(int baudRate, int dataBits, int stopBits, int parity, boolean setRTS, boolean setDTR) throws SerialPortException {
-        return port.setParams(baudRate, dataBits, stopBits, parity, setRTS, setDTR);
-    }
+    boolean setParams(int baudRate, int dataBits, int stopBits, int parity, boolean setRTS, boolean setDTR) throws SerialPortException;
 
     /**
      * Purge of input and output buffer. Required flags shall be sent to the input. Variables with prefix
@@ -217,9 +100,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean purgePort(int flags) throws SerialPortException {
-        return port.purgePort(flags);
-    }
+    boolean purgePort(int flags) throws SerialPortException;
 
     /**
      * Set events mask. Required flags shall be sent to the input. Variables with prefix
@@ -232,9 +113,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean setEventsMask(int mask) throws SerialPortException {
-        return port.setEventsMask(mask);
-    }
+    boolean setEventsMask(int mask) throws SerialPortException;
 
     /**
      * Getting events mask for the port
@@ -243,9 +122,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public int getEventsMask() throws SerialPortException {
-        return port.getEventsMask();
-    }
+    int getEventsMask() throws SerialPortException;
 
     /**
      * Change RTS line state. Set "true" for switching ON and "false" for switching OFF RTS line
@@ -254,9 +131,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean setRTS(boolean enabled) throws SerialPortException {
-        return port.setRTS(enabled);
-    }
+    boolean setRTS(boolean enabled) throws SerialPortException;
 
     /**
      * Change DTR line state. Set "true" for switching ON and "false" for switching OFF DTR line
@@ -265,9 +140,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean setDTR(boolean enabled) throws SerialPortException {
-        return port.setDTR(enabled);
-    }
+    boolean setDTR(boolean enabled) throws SerialPortException;
 
     /**
      * Write byte array to port
@@ -276,9 +149,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean writeBytes(byte[] buffer) throws SerialPortException {
-        return port.writeBytes(buffer);
-    }
+    boolean writeBytes(byte[] buffer) throws SerialPortException;
 
     /**
      * Write single byte to port
@@ -289,9 +160,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean writeByte(byte singleByte) throws SerialPortException {
-        return port.writeByte(singleByte);
-    }
+    boolean writeByte(byte singleByte) throws SerialPortException;
 
     /**
      * Write String to port
@@ -302,9 +171,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean writeString(String string) throws SerialPortException {
-        return port.writeString(string);
-    }
+    boolean writeString(String string) throws SerialPortException;
 
     /**
      * Write String to port
@@ -315,9 +182,7 @@ public class SerialPort {
      *
      * @since 2.8.0
      */
-    public boolean writeString(String string, String charsetName) throws SerialPortException, UnsupportedEncodingException {
-        return port.writeString(string, charsetName);
-    }
+    boolean writeString(String string, String charsetName) throws SerialPortException, UnsupportedEncodingException;
 
     /**
      * Write int value (in range from 0 to 255 (0x00 - 0xFF)) to port
@@ -328,9 +193,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean writeInt(int singleInt) throws SerialPortException {
-        return port.writeInt(singleInt);
-    }
+    boolean writeInt(int singleInt) throws SerialPortException;
 
     /**
      * Write int array (in range from 0 to 255 (0x00 - 0xFF)) to port
@@ -341,9 +204,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean writeIntArray(int[] buffer) throws SerialPortException {
-        return port.writeIntArray(buffer);
-    }
+    boolean writeIntArray(int[] buffer) throws SerialPortException;
 
     /**
      * Read byte array from port
@@ -354,9 +215,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public byte[] readBytes(int byteCount) throws SerialPortException {
-        return port.readBytes(byteCount);
-    }
+    byte[] readBytes(int byteCount) throws SerialPortException;
 
     /**
      * Read string from port
@@ -369,9 +228,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readString(int byteCount) throws SerialPortException {
-        return port.readString(byteCount);
-    }
+    String readString(int byteCount) throws SerialPortException;
 
     /**
      * Read Hex string from port (example: FF 0A FF). Separator by default is a space
@@ -384,9 +241,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readHexString(int byteCount) throws SerialPortException {
-        return port.readHexString(byteCount);
-    }
+    String readHexString(int byteCount) throws SerialPortException;
 
     /**
      * Read Hex string from port with setted separator (example if separator is "::": FF::0A::FF)
@@ -399,9 +254,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readHexString(int byteCount, String separator) throws SerialPortException {
-        return port.readHexString(byteCount, separator);
-    }
+    String readHexString(int byteCount, String separator) throws SerialPortException;
 
     /**
      * Read Hex String array from port
@@ -414,9 +267,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String[] readHexStringArray(int byteCount) throws SerialPortException {
-        return port.readHexStringArray(byteCount);
-    }
+    String[] readHexStringArray(int byteCount) throws SerialPortException;
 
     /**
      * Read int array from port
@@ -429,9 +280,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public int[] readIntArray(int byteCount) throws SerialPortException {
-        return port.readIntArray(byteCount);
-    }
+    int[] readIntArray(int byteCount) throws SerialPortException;
 
     /**
      * Read byte array from port
@@ -446,9 +295,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public byte[] readBytes(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readBytes(byteCount, timeout);
-    }
+    byte[] readBytes(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read string from port
@@ -463,9 +310,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public String readString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readString(byteCount, timeout);
-    }
+    String readString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read Hex string from port (example: FF 0A FF). Separator by default is a space
@@ -480,9 +325,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public String readHexString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexString(byteCount, timeout);
-    }
+    String readHexString(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read Hex string from port with setted separator (example if separator is "::": FF::0A::FF)
@@ -497,9 +340,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public String readHexString(int byteCount, String separator, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexString(byteCount, separator, timeout);
-    }
+    String readHexString(int byteCount, String separator, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read Hex String array from port
@@ -514,9 +355,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public String[] readHexStringArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readHexStringArray(byteCount, timeout);
-    }
+    String[] readHexStringArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read int array from port
@@ -531,9 +370,7 @@ public class SerialPort {
      *
      * @since 2.0
      */
-    public int[] readIntArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException {
-        return port.readIntArray(byteCount, timeout);
-    }
+    int[] readIntArray(int byteCount, int timeout) throws SerialPortException, SerialPortTimeoutException;
 
     /**
      * Read all available bytes from port like a byte array
@@ -544,9 +381,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public byte[] readBytes() throws SerialPortException {
-        return port.readBytes();
-    }
+    byte[] readBytes() throws SerialPortException;
 
     /**
      * Read all available bytes from port like a String
@@ -557,9 +392,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readString() throws SerialPortException {
-        return port.readString();
-    }
+    String readString() throws SerialPortException;
 
     /**
      * Read all available bytes from port like a Hex String
@@ -570,9 +403,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readHexString() throws SerialPortException {
-        return port.readHexString();
-    }
+    String readHexString() throws SerialPortException;
 
     /**
      * Read all available bytes from port like a Hex String with setted separator
@@ -583,9 +414,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String readHexString(String separator) throws SerialPortException {
-        return port.readHexString(separator);
-    }
+    String readHexString(String separator) throws SerialPortException;
 
     /**
      * Read all available bytes from port like a Hex String array
@@ -596,9 +425,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public String[] readHexStringArray() throws SerialPortException {
-        return port.readHexStringArray();
-    }
+    String[] readHexStringArray() throws SerialPortException;
 
     /**
      * Read all available bytes from port like a int array (values in range from 0 to 255)
@@ -609,9 +436,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public int[] readIntArray() throws SerialPortException {
-        return port.readIntArray();
-    }
+     int[] readIntArray() throws SerialPortException;
 
     /**
      * Get count of bytes in input buffer
@@ -622,9 +447,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public int getInputBufferBytesCount() throws SerialPortException {
-        return port.getInputBufferBytesCount();
-    }
+    int getInputBufferBytesCount() throws SerialPortException;
 
     /**
      * Get count of bytes in output buffer
@@ -635,9 +458,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public int getOutputBufferBytesCount() throws SerialPortException {
-        return port.getOutputBufferBytesCount();
-    }
+    int getOutputBufferBytesCount() throws SerialPortException;
 
     /**
      * Set flow control mode. For required mode use variables with prefix <b>"FLOWCONTROL_"</b>.
@@ -649,9 +470,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean setFlowControlMode(int mask) throws SerialPortException {
-        return port.setFlowControlMode(mask);
-    }
+    boolean setFlowControlMode(int mask) throws SerialPortException;
 
     /**
      * Get flow control mode
@@ -662,9 +481,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public int getFlowControlMode() throws SerialPortException {
-        return port.getFlowControlMode();
-    }
+    int getFlowControlMode() throws SerialPortException;
 
     /**
      * Send Break singnal for setted duration
@@ -677,9 +494,7 @@ public class SerialPort {
      *
      * @since 0.8
      */
-    public boolean sendBreak(int duration) throws SerialPortException {
-        return port.sendBreak(duration);
-    }
+    boolean sendBreak(int duration)throws SerialPortException;
 
     /**
      * Getting lines status. Lines status is sent as 0 – OFF and 1 - ON
@@ -692,9 +507,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public int[] getLinesStatus() throws SerialPortException {
-        return port.getLinesStatus();
-    }
+    int[] getLinesStatus() throws SerialPortException;
 
     /**
      * Get state of CTS line
@@ -703,9 +516,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean isCTS() throws SerialPortException {
-        return port.isCTS();
-    }
+    boolean isCTS() throws SerialPortException;
 
     /**
      * Get state of DSR line
@@ -714,9 +525,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean isDSR() throws SerialPortException {
-        return port.isDSR();
-    }
+    boolean isDSR() throws SerialPortException;
 
     /**
      * Get state of RING line
@@ -725,9 +534,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean isRING() throws SerialPortException {
-        return port.isRING();
-    }
+    boolean isRING() throws SerialPortException;
 
     /**
      * Get state of RLSD line
@@ -736,9 +543,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean isRLSD() throws SerialPortException {
-        return port.isRLSD();
-    }
+    boolean isRLSD() throws SerialPortException;
 
     /**
      * Add event listener. Object of <b>"SerialPortEventListener"</b> type shall
@@ -748,9 +553,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public void addEventListener(SerialPortEventListener listener) throws SerialPortException {
-        port.addEventListener(listener);
-    }
+    void addEventListener(SerialPortEventListener listener) throws SerialPortException;
 
     /**
      * Add event listener. Object of <b>"SerialPortEventListener"</b> type shall be sent
@@ -762,9 +565,8 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public void addEventListener(SerialPortEventListener listener, int mask) throws SerialPortException {
-        port.addEventListener(listener, mask);
-    }
+    void addEventListener(SerialPortEventListener listener, int mask) throws SerialPortException;
+
 
     /**
      * Delete event listener. Mask is set to 0. So at the next addition of event
@@ -774,9 +576,7 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean removeEventListener() throws SerialPortException {
-        return port.removeEventListener();
-    }
+    boolean removeEventListener() throws SerialPortException;
 
     /**
      * Close port. This method deletes event listener first, then closes the port
@@ -785,7 +585,5 @@ public class SerialPort {
      *
      * @throws SerialPortException
      */
-    public boolean closePort() throws SerialPortException {
-        return port.closePort();
-    }
+    boolean closePort() throws SerialPortException;
 }

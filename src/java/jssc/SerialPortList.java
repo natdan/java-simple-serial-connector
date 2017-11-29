@@ -27,6 +27,7 @@ package jssc;
 import java.io.File;
 import java.util.Comparator;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -34,6 +35,8 @@ import java.util.regex.Pattern;
  * @author scream3r
  */
 public class SerialPortList {
+
+    private static Logger logger = Logger.getLogger("SerialPortList");
 
     private static SerialNativeInterface serialInterface;
     private static final Pattern PORTNAMES_REGEXP;
@@ -155,7 +158,7 @@ public class SerialPortList {
         }
     };
     //<-since 2.1.0
-    
+
     /**
      * Get sorted array of serial ports in the system using default settings:<br>
      *
@@ -175,7 +178,9 @@ public class SerialPortList {
      * with <b>zero</b> length will be returned (since jSSC-0.8 in previous versions null will be returned)
      */
     public static String[] getPortNames() {
-        return getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+        String[] ports = getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+        logger.fine("getPortNames(): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -192,20 +197,24 @@ public class SerialPortList {
      * @since 2.3.0
      */
     public static String[] getPortNames(String searchPath) {
-        return getPortNames(searchPath, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+        String[] ports = getPortNames(searchPath, PORTNAMES_REGEXP, PORTNAMES_COMPARATOR);
+        logger.fine("getPortNames(" + searchPath + "): " + ports.toString());
+        return ports;
     }
 
     /**
      * Get sorted array of serial ports in the system matched pattern
      *
      * @param pattern RegExp pattern for matching port names <b>(not null)</b>
-     * 
+     *
      * @return String array. If there is no ports in the system String[]
      *
      * @since 2.3.0
      */
     public static String[] getPortNames(Pattern pattern) {
-        return getPortNames(PORTNAMES_PATH, pattern, PORTNAMES_COMPARATOR);
+        String[] ports = getPortNames(PORTNAMES_PATH, pattern, PORTNAMES_COMPARATOR);
+        logger.fine("getPortNames(pattern=" + pattern + "): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -218,7 +227,9 @@ public class SerialPortList {
      * @since 2.3.0
      */
     public static String[] getPortNames(Comparator<String> comparator) {
-        return getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, comparator);
+        String[] ports = getPortNames(PORTNAMES_PATH, PORTNAMES_REGEXP, comparator);
+        logger.fine("getPortNames(comparator = " + comparator + "): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -236,7 +247,9 @@ public class SerialPortList {
      * @since 2.3.0
      */
     public static String[] getPortNames(String searchPath, Pattern pattern) {
-        return getPortNames(searchPath, pattern, PORTNAMES_COMPARATOR);
+        String[] ports = getPortNames(searchPath, pattern, PORTNAMES_COMPARATOR);
+        logger.fine("getPortNames(searchPath = " + searchPath + ", pattern=" + pattern + "): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -254,7 +267,9 @@ public class SerialPortList {
      * @since 2.3.0
      */
     public static String[] getPortNames(String searchPath, Comparator<String> comparator) {
-        return getPortNames(searchPath, PORTNAMES_REGEXP, comparator);
+        String[] ports = getPortNames(searchPath, PORTNAMES_REGEXP, comparator);
+        logger.fine("getPortNames(searchPath = " + searchPath + ", comparator=" + comparator + "): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -268,7 +283,9 @@ public class SerialPortList {
      * @since 2.3.0
      */
     public static String[] getPortNames(Pattern pattern, Comparator<String> comparator) {
-        return getPortNames(PORTNAMES_PATH, pattern, comparator);
+        String[] ports = getPortNames(PORTNAMES_PATH, pattern, comparator);
+        logger.fine("getPortNames(pattern = " + pattern + ", comparator=" + comparator + "): " + ports.toString());
+        return ports;
     }
 
     /**
@@ -291,9 +308,13 @@ public class SerialPortList {
             return new String[]{};
         }
         if(SerialNativeInterface.getOsType() == SerialNativeInterface.OS_WINDOWS){
-            return getWindowsPortNames(pattern, comparator);
+            String[] ports = getWindowsPortNames(pattern, comparator);
+            logger.fine("getPortNames(searchPath=" + searchPath + ", pattern = " + pattern + ", comparator=" + comparator + "): " + ports.toString());
+            return ports;
         }
-        return getUnixBasedPortNames(searchPath, pattern, comparator);
+        String[] ports = getUnixBasedPortNames(searchPath, pattern, comparator);
+        logger.fine("getPortNames(searchPath=" + searchPath + ", pattern = " + pattern + ", comparator=" + comparator + "): " + ports.toString());
+        return ports;
     }
 
     /**
